@@ -1,7 +1,14 @@
 from flask import Flask
 from flask import request
+from concurrency_module import ThreadPool
 import requests
 
+pool = ThreadPool(10)
+
+# Simple domain ontology map
+entity_map = {}
+entity_map["age_group"]["mother"] = "50 +"
+entity_map["gender"]["mother"] = "Female"
 
 
 
@@ -20,24 +27,73 @@ def autorize_apiai(user_say):
 def fb_text_message(id, message):
     return {"recipient": {"id": id}, "message": {"text": message}}
 
+def is_all_slot_filled(parameter):
+    is_allslot_filled = True
+    for key in parameter:
+        if not parameter[key]:
+            is_allslot_filled = False
+    return is_allslot_filled and bool(parameter)
+
+def query_items(spec_json, end_point):
+    responce = requests.get(url=end_point)
+    return responce
+
+def derive_query_spec(entity_map):
+
+
+def handle_message(param):
+    URL = "https://graph.facebook.com/v2.6/me/messages?access_token=EAACksADeIqABACCgAO6SydQZCAS4WQmJhEiz5I7OycuEoiCnWClqb7Id1JER6QBg65WKMAU2Nl4YYh0f0ZBkG8oqXXa7TAlY8uS9fSh0wgNAZC1A8EcGN106s9btrKoc1dG7axeHZBOQoCz6aTz3ZCZARVAlcvGkuXBAKUFoI5xgZDZD"
+    print("fb input ", param)
+    entry = param["entry"][0]
+    messaging = entry["messaging"][0]
+    message = messaging["message"]
+    message_text = message["text"]
+    print("USER SAY ", message_text)
+    # Pass it to NLU engine
+    apiai_result = autorize_apiai(message_text)
+    apiai_result_json = apiai_result.json()
+    print(apiai_result_json)
+
+    if not bool(is_all_slot_filled(apiai_result_json["result"]["parameters"])):
+        fulfillment = apiai_result_json["result"]["fulfillment"]
+        speech = fulfillment["speech"]
+        print("BOT SAY ", speech)
+        message = fb_text_message("1551434831567297", speech)
+        status = sendData(URL, message)
+        print(status)
+
+    else:
+        event = apiai_result_json["result"]["parameters"]["any"]
+        color = apiai_result_json["result"]["parameters"]["color"]
+        item = apiai_result_json["result"]["parameters"]["item"]
+        receiver = apiai_result_json["result"]["parameters"]["receiver"]
+
+        print("BOT SAY Quering using ", event, " ", color, " ", item, " ", receiver)
+
+        query_items()
+
+        message = fb_text_message("1551434831567297",
+                                  "Quering using " + event + " " + color + " " + item + " " + receiver)
+        status = sendData(URL, message)
+        print(status)
+
+
 app = Flask(__name__)
 
 @app.route("/webhook", methods=['GET', 'POST'])
 def hook():
     if request.method == 'POST':
-
         # Extract user message
         param = request.get_json()
-        entry = param["entry"][0]
-        messaging = entry["messaging"][0]
-        message = messaging["message"]
-        message_text = message["text"]
-        print("USER SAY ", message_text)
-        # Pass it to NLU engine
-        apiai_result = autorize_apiai(message_text)
-        print(apiai_result.json())
+        pool.map(handle_message, [param])
 
-        # url = "https://graph.facebook.com/v2.6/me/messages?access_token=EAACksADeIqABACCgAO6SydQZCAS4WQmJhEiz5I7OycuEoiCnWClqb7Id1JER6QBg65WKMAU2Nl4YYh0f0ZBkG8oqXXa7TAlY8uS9fSh0wgNAZC1A8EcGN106s9btrKoc1dG7axeHZBOQoCz6aTz3ZCZARVAlcvGkuXBAKUFoI5xgZDZD"
+
+
+
+
+
+
+
 
         # print("APIAP res")
         # print(apiai_result.json())
@@ -47,11 +103,11 @@ def hook():
         #
         # status = sendData(url, message)
         # print(status)
-        return "success"
+        return str(200)
 
     if request.method == 'GET':
         print(request.args.get("hub.challenge"))
-
+        print("Subscribed............................................................")
         return request.args.get("hub.challenge"), 200
 
 
