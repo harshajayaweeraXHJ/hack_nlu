@@ -6,9 +6,9 @@ import requests
 pool = ThreadPool(10)
 
 # Simple domain ontology map
-entity_map = {}
-entity_map["age_group"]["mother"] = "50 +"
-entity_map["gender"]["mother"] = "Female"
+ontology_entity_map = {}
+ontology_entity_map["age_group"]["mother"] = "50 +"
+ontology_entity_map["gender"]["mother"] = "Female"
 
 
 
@@ -27,6 +27,9 @@ def autorize_apiai(user_say):
 def fb_text_message(id, message):
     return {"recipient": {"id": id}, "message": {"text": message}}
 
+def fb_generic_template(id, message):
+    return {"recipient": {"id": id}, "message": message}
+
 def is_all_slot_filled(parameter):
     is_allslot_filled = True
     for key in parameter:
@@ -35,14 +38,37 @@ def is_all_slot_filled(parameter):
     return is_allslot_filled and bool(parameter)
 
 def query_items(spec_json, end_point):
-    responce = requests.get(url=end_point)
+    headers = {'content-type': 'application/json'}
+    responce = requests.get(url=end_point, json=spec_json, headers=headers)
     return responce
 
 def derive_query_spec(entity_map):
+    query_spec = {"name" : "", "description" : "", "price" :"", "brand" : "", "category" : "", "size" : "", "gender" : "", "age_group" : "", "color" : ""}
 
+    query_spec["category"]  = entity_map["item"]
+    query_spec["color"]  = entity_map["color"]
+    query_spec["age_group"] = ontology_entity_map[entity_map["receiver"]]["gender"]
+    query_spec["gender"] = ontology_entity_map[entity_map["receiver"]]["age_group"]
+    return query_spec
+
+
+def generate_template_carousel(items):
+    carousel = { "message": { "attachment": { "type": "template", "payload": { "template_type": "generic", "elements": [] } } }}
+    elements = []
+    for item in items:
+        element = { "title": "", "image_url": "", "subtitle": "", "buttons": [ { "type": "postback", "title": "Buy now", "payload": "DEVELOPER_DEFINED_PAYLOAD" } ] }
+        element["image_url"] = item["image_url"]
+        element["title"] = item["name"]
+        element["subtitle"] = item["description"] + ". " + item["price"]
+        elements.append(element)
+    carousel["message"]["attachment"]["payload"]["elements"] = elements
+    return carousel
 
 def handle_message(param):
     URL = "https://graph.facebook.com/v2.6/me/messages?access_token=EAACksADeIqABACCgAO6SydQZCAS4WQmJhEiz5I7OycuEoiCnWClqb7Id1JER6QBg65WKMAU2Nl4YYh0f0ZBkG8oqXXa7TAlY8uS9fSh0wgNAZC1A8EcGN106s9btrKoc1dG7axeHZBOQoCz6aTz3ZCZARVAlcvGkuXBAKUFoI5xgZDZD"
+    INVENTORY_ENDPOINT = "https://64ffb391.ngrok.io/api/getResults"
+
+
     print("fb input ", param)
     entry = param["entry"][0]
     messaging = entry["messaging"][0]
@@ -63,18 +89,13 @@ def handle_message(param):
         print(status)
 
     else:
-        event = apiai_result_json["result"]["parameters"]["any"]
-        color = apiai_result_json["result"]["parameters"]["color"]
-        item = apiai_result_json["result"]["parameters"]["item"]
-        receiver = apiai_result_json["result"]["parameters"]["receiver"]
 
-        print("BOT SAY Quering using ", event, " ", color, " ", item, " ", receiver)
-
-        query_items()
-
-        message = fb_text_message("1551434831567297",
-                                  "Quering using " + event + " " + color + " " + item + " " + receiver)
-        status = sendData(URL, message)
+        required_entities = apiai_result_json["result"]["parameters"]
+        query_spec = derive_query_spec(required_entities)
+        suggested_items = query_items(query_spec, INVENTORY_ENDPOINT)
+        template_carousel =generate_template_carousel(suggested_items)
+        generic_template =fb_generic_template(template_carousel)
+        status = sendData(URL, generic_template)
         print(status)
 
 
