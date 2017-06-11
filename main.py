@@ -44,16 +44,15 @@ def derive_query_spec(entity_map):
     query_spec = {"name" : "", "description" : "", "price" :"", "brand" : "", "category" : "", "size" : "", "gender" : "", "age_group" : "", "color" : ""}
 
     query_spec["category"]  = entity_map["item"]
-    print("2 ", query_spec)
+
     query_spec["color"]  = entity_map["color"]
     receiver = entity_map["receiver"]
-    receiver.lower()
-    print("1 ", query_spec)
-    print("11 ", receiver)
-    query_spec["age_group"] = ontology_entity_map["gender"]["mother"]
-    print("3 ", query_spec)
-    query_spec["gender"] = ontology_entity_map["age_group"]["mother"]
-    print("4 ", query_spec)
+    receiver = receiver.lower()
+
+    query_spec["age_group"] = ontology_entity_map["gender"][receiver]
+
+    query_spec["gender"] = ontology_entity_map["age_group"][receiver]
+
     return query_spec
 
 
@@ -72,15 +71,18 @@ def generate_template_carousel(items):
 
 def handle_message(param):
     URL = "https://graph.facebook.com/v2.6/me/messages?access_token=EAACksADeIqABACCgAO6SydQZCAS4WQmJhEiz5I7OycuEoiCnWClqb7Id1JER6QBg65WKMAU2Nl4YYh0f0ZBkG8oqXXa7TAlY8uS9fSh0wgNAZC1A8EcGN106s9btrKoc1dG7axeHZBOQoCz6aTz3ZCZARVAlcvGkuXBAKUFoI5xgZDZD"
-    INVENTORY_ENDPOINT = "https://64ffb391.ngrok.io/api/getResults"
+    INVENTORY_ENDPOINT = "http://localhost:8080/api/getResults"
 
 
     print("fb input ", param)
     entry = param["entry"][0]
     messaging = entry["messaging"][0]
+
+    SENDER_ID = messaging["sender"]["id"]
+
     message = messaging["message"]
     message_text = message["text"]
-    print("USER SAY ", message_text)
+
     # Pass it to NLU engine
     apiai_result = autorize_apiai(message_text)
     apiai_result_json = apiai_result.json()
@@ -90,26 +92,26 @@ def handle_message(param):
         fulfillment = apiai_result_json["result"]["fulfillment"]
         speech = fulfillment["speech"]
         print("BOT SAY ", speech)
-        message = fb_text_message("1551434831567297", speech)
+        message = fb_text_message(SENDER_ID, speech)
         status = sendData(URL, message)
         print(status)
 
     else:
 
-        print("Request completed ........................")
+
         required_entities = apiai_result_json["result"]["parameters"]
-        print("required_entities ", required_entities)
         query_spec = derive_query_spec(required_entities)
-        print("query_spec", query_spec)
-        print("Queried data ........................")
         suggested_items = query_items(query_spec, INVENTORY_ENDPOINT)
-        print("query completed ........................")
-        print("suggested_items ", suggested_items)
         template_carousel =generate_template_carousel(suggested_items)
-        generic_template =fb_generic_template("1551434831567297", template_carousel)
-        print("generic_template ", generic_template)
+
+        msg = fb_text_message(SENDER_ID, "Gotcha! I found following designs are very popular these days :D")
+        status = sendData(URL, msg)
+        print(status)
+
+        generic_template =fb_generic_template(SENDER_ID, template_carousel)
         status = sendData(URL, generic_template)
         print(status)
+
 
 
 app = Flask(__name__)
