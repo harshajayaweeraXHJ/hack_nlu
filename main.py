@@ -71,7 +71,7 @@ def generate_template_carousel(items):
 
 def handle_message(param):
     URL = "https://graph.facebook.com/v2.6/me/messages?access_token=EAACksADeIqABACCgAO6SydQZCAS4WQmJhEiz5I7OycuEoiCnWClqb7Id1JER6QBg65WKMAU2Nl4YYh0f0ZBkG8oqXXa7TAlY8uS9fSh0wgNAZC1A8EcGN106s9btrKoc1dG7axeHZBOQoCz6aTz3ZCZARVAlcvGkuXBAKUFoI5xgZDZD"
-    INVENTORY_ENDPOINT = "http://localhost:8080/api/getResults"
+    INVENTORY_ENDPOINT = "https://da7c56dc.ngrok.io/api/getResults"
 
 
     print("fb input ", param)
